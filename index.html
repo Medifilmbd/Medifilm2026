@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediFilm BD | Medical & Pathology Supply Store</title>
+  <meta name="description" content="Official online store of MediFilm BD — X-Ray Film & Medical Pathology Solution. Order Fuji X-Ray Film, Diagnostic Reagents, Clinic Setup Equipment & Surgical Supplies across Bangladesh." />
+  <meta name="robots" content="index, follow" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const SUPABASE_URL = "https://oamgfqbednoigqufltmz.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "Sb_publishable_Nn6eb7oMPj-qn-C14lpkeA_8nwe3ksB";
+
+    let supabase = null;
+    let isSupabaseReady = false;
+
+    try {
+      supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+      isSupabaseReady = Boolean(supabase);
+    } catch (err) {
+      console.warn("Supabase init fallback to local storage:", err);
+    }
+
+    function normalizeReview(r) {
+      return {
+        id: r.id,
+        productId: r.product_id ?? r.productId ?? "",
+        name: r.name,
+        rating: Number(r.rating || 5),
+        comment: r.comment,
+        created_at: Number(r.created_at || Date.now())
+      };
+    }
+
+    window.SB = {
+      ready: () => isSupabaseReady,
+      fetchCollection: async (colName, orderField = "created_at", desc = true, maxItems = 100) => {
+        if (!supabase) return null;
+        const { data, error } = await supabase
+          .from(colName)
+          .select("*")
+          .order(orderField, { ascending: !desc })
+          .limit(maxItems);
+        if (error) throw error;
+        if (colName === "reviews") {
+          return (data || []).map(normalizeReview);
+        }
+        return data || [];
+      },
+      setDocItem: async (colName, docId, payload) => {
+        if (!supabase) return false;
+        let row = { ...payload, id: String(docId) };
+        if (colName === "reviews") {
+          row = {
+            id: String(docId),
+            product_id: payload.productId ?? payload.product_id ?? "",
+            name: payload.name,
+            rating: Number(payload.rating || 5),
+            comment: payload.comment,
+            created_at: Number(payload.created_at || Date.now())
+          };
+        }
+        const { error } = await supabase.from(colName).upsert(row, { onConflict: "id" });
+        if (error) throw error;
+        return true;
+      },
+      updateItem: async (colName, docId, payload) => {
+        if (!supabase) return false;
+        const { error } = await supabase.from(colName).update(payload).eq("id", String(docId));
+        if (error) throw error;
+        return true;
+      },
+      deleteItem: async (colName, docId) => {
+        if (!supabase) return false;
+        const { error } = await supabase.from(colName).delete().eq("id", String(docId));
+        if (error) throw error;
+        return true;
+      },
+      uploadProductImage: async (file) => {
+        if (!supabase) throw new Error("Supabase Storage not ready");
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const filePath = `products/${Date.now()}_${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("product-images")
+          .upload(filePath, file, { upsert: false });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from("product-images").getPublicUrl(filePath);
+        return data.publicUrl;
+      }
+    };
+
+    window.dispatchEvent(new Event("supabase-sdk-ready"));
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', 'Hind Siliguri', sans-serif;
+      background-color: #EFF0F5;
+      color: #212121;
+    }
+    .daraz-orange {
+      background-color: #F85606;
+    }
+    .daraz-orange-hover:hover {
+      background-color: #d94802;
+    }
+    .card-shadow {
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      transition: all 0.2s ease;
+    }
+    .card-shadow:hover {
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.13);
+      transform: translateY(-2px);
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printable-slip,
+      #printable-slip * {
+        visibility: visible;
+      }
+      #printable-slip {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: #ffffff;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Utility Bar -->
+  <div class="bg-[#ececec] text-[11px] text-gray-600 border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-3 py-1 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span id="top-announcement" class="font-medium text-[#F85606]">🚚 Nationwide Medical Delivery | Condition COD Advance ৳150–৳200</span>
+      </div>
+      <div class="flex items-center gap-3 sm:gap-4 font-medium">
+        <button type="button" onclick="openCustomerModal()" class="hover:text-[#F85606] transition">Track Order</button>
+        <button type="button" onclick="openCustomerModal()" id="customer-header-btn" class="hover:text-[#F85606] transition font-semibold text-gray-800">👤 Login / Account</button>
+        <button type="button" onclick="toggleLanguage()" class="px-2 py-0.5 rounded bg-white border border-gray-300 hover:border-[#F85606] text-gray-800 font-semibold transition">
+          <span id="lang-toggle-label">বাংলা</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Sticky Header -->
+  <header class="daraz-orange sticky top-0 z-40 shadow-md">
+    <div class="max-w-7xl mx-auto px-3 py-3 flex items-center justify-between gap-3">
+      <a href="#" onclick="resetFilters(); return false;" class="flex items-center gap-2 text-white shrink-0">
+        <div class="w-9 h-9 rounded-lg bg-white text-[#F85606] flex items-center justify-center font-extrabold text-xl shadow">M</div>
+        <div>
+          <div id="brand-title" class="font-extrabold text-lg sm:text-xl leading-none tracking-tight">MediFilm BD</div>
+          <div id="brand-subtitle" class="text-[10px] text-orange-100 leading-tight hidden sm:block">X-Ray & Pathology Solution</div>
+        </div>
+      </a>
+
+      <div class="flex-1 max-w-2xl">
+        <div class="flex bg-white rounded-md overflow-hidden shadow-sm">
+          <input
+            id="search-input"
+            type="text"
+            oninput="handleSearch(this.value)"
+            placeholder="Search Fuji X-Ray Film, Reagents, ECG, Clinic Setup..."
+            class="w-full px-3.5 py-2 text-sm text-gray-800 focus:outline-none"
+          />
+          <button
+            type="button"
+            onclick="handleSearch(document.getElementById('search-input').value)"
+            class="bg-[#FFE1D2] hover:bg-[#ffd2bc] text-[#F85606] px-4 flex items-center justify-center font-bold transition"
+          >
+            🔍
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+        <a
+          id="header-wa-link"
+          href="tel:+8809658096877"
+          class="hidden md:flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold px-3 py-2 rounded-md transition"
+        >
+          <span>📞</span>
+          <span>+8809658096877</span>
+        </a>
+        <button
+          type="button"
+          onclick="toggleCartDrawer(true)"
+          class="relative text-white p-2 hover:bg-white/15 rounded-lg transition"
+          aria-label="Open Cart"
+        >
+          <span class="text-2xl">🛒</span>
+          <span id="cart-badge" class="absolute -top-0.5 -right-0.5 bg-white text-[#F85606] text-[11px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow">0</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobile-category-bar" class="bg-[#e04b03] px-3 py-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar lg:hidden text-xs text-white"></div>
+  </header>
+
+  <!-- Main Storefront Content -->
+  <main class="max-w-7xl w-full mx-auto px-3 py-4 flex-1 space-y-6">
+
+    <!-- Hero Section -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+      <aside class="hidden lg:block lg:col-span-3 bg-white rounded-lg card-shadow p-2.5">
+        <div class="text-xs font-bold uppercase tracking-wider text-gray-400 px-2.5 py-1.5">Categories</div>
+        <ul id="desktop-category-list" class="space-y-0.5 text-sm"></ul>
+      </aside>
+
+      <div class="lg:col-span-9 bg-gradient-to-r from-[#1e293b] via-[#0f172a] to-[#F85606] rounded-lg card-shadow p-5 sm:p-8 text-white flex flex-col justify-between relative overflow-hidden min-h-[210px]">
+        <div class="relative z-10 max-w-xl space-y-2.5">
+          <span class="inline-block bg-[#F85606] text-white text-[11px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider">Hospital & Clinic Supply</span>
+          <h1 id="hero-heading" class="text-2xl sm:text-3xl font-extrabold leading-tight">Authentic Fuji X-Ray Films, Diagnostic Reagents & Clinic Setup</h1>
+          <p id="hero-desc" class="text-xs sm:text-sm text-gray-200">Trusted supply for Hospitals, Diagnostic Centers & Clinics. Nationwide Condition Delivery with ৳150–৳200 Advance COD.</p>
+          <div class="pt-2 flex flex-wrap gap-2.5">
+            <button type="button" onclick="scrollToProducts()" class="bg-[#F85606] hover:bg-[#d94802] text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded shadow transition">Shop Now</button>
+            <button type="button" onclick="filterByFlag('preorder')" class="bg-white/15 hover:bg-white/25 text-white font-semibold text-xs sm:text-sm px-4 py-2.5 rounded border border-white/30 transition">Pre-Order Items</button>
+          </div>
+        </div>
+        <div class="hidden sm:flex items-center gap-4 text-xs text-gray-200 pt-4 relative z-10 border-t border-white/15 mt-4">
+          <span>✓ Genuine Medical Grade</span>
+          <span>✓ Fast Courier Delivery</span>
+          <span>✓ bKash / Nagad / DBBL Agent</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hot Selling Flash Section -->
+    <section id="flash-sale-section" class="bg-white rounded-lg card-shadow overflow-hidden">
+      <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-3 sm:gap-5">
+          <h2 class="text-lg font-extrabold text-[#F85606] flex items-center gap-1.5">🔥 <span>Hot Selling</span></h2>
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+            <span>Ends in</span>
+            <span id="timer-h" class="bg-[#F85606] text-white px-2 py-1 rounded font-bold">08</span> :
+            <span id="timer-m" class="bg-[#F85606] text-white px-2 py-1 rounded font-bold">45</span> :
+            <span id="timer-s" class="bg-[#F85606] text-white px-2 py-1 rounded font-bold">30</span>
+          </div>
+        </div>
+        <button type="button" onclick="filterByFlag('hot')" class="text-xs font-bold text-[#F85606] border border-[#F85606] px-3 py-1 rounded hover:bg-[#F85606] hover:text-white transition">VIEW ALL HOT</button>
+      </div>
+      <div id="hot-selling-grid" class="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3"></div>
+    </section>
+
+    <!-- Clean Product Catalog -->
+    <section id="all-products-section" class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 id="catalog-heading" class="text-lg sm:text-xl font-extrabold text-gray-800">Just For You</h2>
+          <p id="catalog-sub" class="text-xs text-gray-500">Tap any product image or title to view full details & reviews</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <select id="stock-filter" onchange="renderProducts()" class="bg-white border border-gray-300 rounded px-2.5 py-1.5 font-medium text-gray-700 focus:outline-none focus:border-[#F85606]">
+            <option value="all">All Availability</option>
+            <option value="instock">In Stock</option>
+            <option value="preorder">Pre-Order</option>
+          </select>
+          <select id="sort-filter" onchange="renderProducts()" class="bg-white border border-gray-300 rounded px-2.5 py-1.5 font-medium text-gray-700 focus:outline-none focus:border-[#F85606]">
+            <option value="default">Sort: Featured</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3"></div>
+    </section>
+
+    <!-- Customer Reviews Showcase -->
+    <section id="reviews-showcase-section" class="bg-white rounded-lg card-shadow p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-extrabold text-gray-800">⭐ Customer Reviews</h3>
+        <span id="review-count-badge" class="text-xs font-semibold text-gray-500">0 Reviews</span>
+      </div>
+      <div id="public-reviews-grid" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-[#1e293b] text-gray-300 text-xs mt-10">
+    <div class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="space-y-2">
+        <div class="text-white font-extrabold text-base">X-RAY FILM & MEDICAL PATHOLOGY SOLUTION</div>
+        <p class="text-gray-400 leading-relaxed">Gobindaganj & Mahimaganj, Gaibandha, Bangladesh. Supplying Fuji Medical Films, Diagnostic Reagents, Clinic Setup & Surgical Items.</p>
+      </div>
+      <div class="space-y-1.5">
+        <div class="text-white font-bold uppercase tracking-wider">Delivery & Payment</div>
+        <div>• Nationwide Condition Courier</div>
+        <div>• Condition Advance (৳150–৳200)</div>
+        <div>• bKash / Nagad / DBBL Agent Banking</div>
+      </div>
+      <div class="space-y-1.5">
+        <div class="text-white font-bold uppercase tracking-wider">Customer Care</div>
+        <div><button type="button" onclick="openCustomerModal()" class="hover:text-[#F85606]">My Orders & Tracking</button></div>
+        <div><button type="button" onclick="openCustomerModal()" class="hover:text-[#F85606]">Customer Login</button></div>
+      </div>
+      <div class="space-y-1.5">
+        <div class="text-white font-bold uppercase tracking-wider">Contact Hotline & Payment</div>
+        <div id="footer-phone" class="text-sm font-bold text-[#F85606]">📞 +8809658096877</div>
+        <div id="footer-payment-info" class="text-gray-300">bKash / Nagad: 01750377654</div>
+        <div id="footer-dbbl-info" class="text-gray-300">DBBL Agent Banking: 7017346678915</div>
+      </div>
+    </div>
+    <div class="border-t border-gray-700 py-3 px-4 text-center text-gray-400 flex items-center justify-center gap-2">
+      <span>© 2026 MediFilm BD — X-Ray Film & Medical Pathology Solution.</span>
+      <button type="button" onclick="openAdminGate()" title="Admin Login" class="opacity-50 hover:opacity-100 transition text-xs">🔒 Admin Login</button>
+    </div>
+  </footer>
+
+  <!-- Cart & Checkout Drawer -->
+  <div id="cart-drawer" class="fixed inset-0 z-50 hidden">
+    <div onclick="toggleCartDrawer(false)" class="absolute inset-0 bg-black/50"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div class="daraz-orange text-white px-4 py-3.5 flex items-center justify-between">
+        <h3 class="font-bold text-base">🛒 Shopping Cart & Checkout</h3>
+        <button type="button" onclick="toggleCartDrawer(false)" class="text-white text-xl font-bold px-2">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div id="cart-items-list" class="space-y-2.5"></div>
+
+        <form id="checkout-form" onsubmit="submitOrder(event)" class="border-t pt-4 space-y-3 hidden">
+          <h4 class="font-bold text-sm text-gray-800">📋 Delivery & Payment Information</h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-600 mb-1">Full Name / Clinic Name *</label>
+              <input id="chk-name" type="text" required placeholder="Your Name / Clinic" class="w-full border rounded px-3 py-2 text-xs focus:border-[#F85606] focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-600 mb-1">Mobile Number *</label>
+              <input id="chk-phone" type="tel" required placeholder="017XXXXXXXX" class="w-full border rounded px-3 py-2 text-xs focus:border-[#F85606] focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-600 mb-1">Delivery Location Zone *</label>
+            <select id="chk-zone" onchange="recalculateCheckout()" class="w-full border rounded px-3 py-2 text-xs font-semibold bg-orange-50/50 border-orange-200 focus:border-[#F85606] focus:outline-none">
+              <option value="local">Gaibandha / Gobindaganj / Mahimaganj (Advance ৳150 | Delivery ৳80)</option>
+              <option value="north">North Bengal — Rangpur & Rajshahi Div (Advance ৳180 | Delivery ৳130)</option>
+              <option value="nationwide" selected>Nationwide — Dhaka, Chattogram & All BD (Advance ৳200 | Delivery ৳150)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-600 mb-1">Full Delivery Address *</label>
+            <textarea id="chk-address" rows="2" required placeholder="Address, Upazila, District..." class="w-full border rounded px-3 py-2 text-xs focus:border-[#F85606] focus:outline-none"></textarea>
+          </div>
+
+          <div class="space-y-2">
+            <label class="block text-[11px] font-bold text-gray-700">Payment Option *</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="border-2 rounded-lg p-2.5 cursor-pointer flex items-start gap-2 has-[:checked]:border-[#F85606] has-[:checked]:bg-orange-50">
+                <input type="radio" name="pay_mode" value="cod_condition" checked onchange="recalculateCheckout()" class="mt-0.5 accent-[#F85606]" />
+                <div>
+                  <div class="text-xs font-bold text-gray-800">Cash on Delivery</div>
+                  <div class="text-[10px] text-gray-500">Pay Condition Advance (৳150–৳200) now</div>
+                </div>
+              </label>
+              <label class="border-2 rounded-lg p-2.5 cursor-pointer flex items-start gap-2 has-[:checked]:border-[#F85606] has-[:checked]:bg-orange-50">
+                <input type="radio" name="pay_mode" value="pay_now" onchange="recalculateCheckout()" class="mt-0.5 accent-[#F85606]" />
+                <div>
+                  <div class="text-xs font-bold text-gray-800">Pay Now (Full)</div>
+                  <div class="text-[10px] text-gray-500">Pay 100% total now, ৳0 due on delivery</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 border rounded-lg p-3 text-xs space-y-1.5">
+            <div class="flex justify-between text-gray-600"><span>Items Subtotal:</span><span id="sum-subtotal" class="font-bold">৳0</span></div>
+            <div class="flex justify-between text-gray-600"><span>Delivery Charge:</span><span id="sum-delivery" class="font-bold">৳150</span></div>
+            <div class="flex justify-between font-bold text-gray-800 border-t pt-1.5"><span>Grand Total:</span><span id="sum-grand">৳0</span></div>
+            <div class="flex justify-between text-[#F85606] font-extrabold bg-orange-100/70 px-2 py-1 rounded">
+              <span id="sum-pay-now-label">Condition Advance Payable Now:</span>
+              <span id="sum-pay-now">৳200</span>
+            </div>
+            <div class="flex justify-between text-emerald-700 font-bold px-2">
+              <span>Due on Delivery:</span>
+              <span id="sum-due">৳0</span>
+            </div>
+          </div>
+
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+            <div class="text-[11px] font-bold text-amber-900">
+              📲 Send <span id="instruction-amount" class="underline text-[#F85606]">৳200</span> to confirm order:
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 text-[11px]">
+              <button type="button" onclick="selectWallet('bKash')" id="wallet-bKash" class="wallet-btn border-2 border-[#F85606] bg-white rounded py-1.5 font-bold text-pink-600">bKash</button>
+              <button type="button" onclick="selectWallet('Nagad')" id="wallet-Nagad" class="wallet-btn border bg-white rounded py-1.5 font-bold text-orange-600">Nagad</button>
+              <button type="button" onclick="selectWallet('DBBL Agent')" id="wallet-DBBL Agent" class="wallet-btn border bg-white rounded py-1.5 font-bold text-blue-800">DBBL Agent</button>
+            </div>
+            <div class="flex items-center justify-between bg-white border rounded px-2.5 py-1.5 text-xs">
+              <span><strong id="selected-wallet-name">bKash</strong>: <strong id="selected-wallet-number" class="text-[#F85606]">01750377654</strong></span>
+              <button type="button" onclick="copyWalletNumber()" class="text-[11px] bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded font-semibold">Copy</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="chk-sender" type="text" required placeholder="Sender Number / A/C *" class="border bg-white rounded px-2.5 py-1.5 text-xs focus:border-[#F85606] focus:outline-none" />
+              <input id="chk-trx" type="text" required placeholder="Transaction ID (TrxID) *" class="border bg-white rounded px-2.5 py-1.5 text-xs focus:border-[#F85606] focus:outline-none" />
+            </div>
+          </div>
+
+          <button type="submit" class="w-full daraz-orange daraz-orange-hover text-white font-extrabold py-3 rounded-lg shadow text-sm transition">
+            ✅ Confirm Order
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Details & Review Modal -->
+  <div id="product-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 bg-black/60">
+    <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-5 space-y-4">
+      <div class="flex justify-between items-start border-b pb-3">
+        <h3 id="pm-title" class="font-extrabold text-lg text-gray-800">Product Details</h3>
+        <button type="button" onclick="closeModal('product-modal')" class="text-gray-500 hover:text-black text-xl font-bold">✕</button>
+      </div>
+      <div id="pm-body" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+      <div class="border-t pt-3 space-y-3">
+        <h4 class="font-bold text-sm text-gray-800">⭐ Customer Reviews</h4>
+        <div id="pm-reviews-list" class="space-y-2 max-h-40 overflow-y-auto"></div>
+        <form onsubmit="submitProductReview(event)" class="bg-gray-50 p-3 rounded-lg border space-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <input id="rev-name" type="text" required placeholder="Your Name / Clinic" class="flex-1 border bg-white rounded px-2.5 py-1.5 text-xs" />
+            <select id="rev-rating" class="border bg-white rounded px-2.5 py-1.5 text-xs font-bold text-amber-600">
+              <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+              <option value="4">⭐⭐⭐⭐ (4/5)</option>
+              <option value="3">⭐⭐⭐ (3/5)</option>
+              <option value="2">⭐⭐ (2/5)</option>
+              <option value="1">⭐ (1/5)</option>
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <input id="rev-comment" type="text" required placeholder="Write your review..." class="flex-1 border bg-white rounded px-2.5 py-1.5 text-xs" />
+            <button type="submit" class="daraz-orange text-white text-xs font-bold px-4 py-1.5 rounded">Post</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Slip Modal -->
+  <div id="slip-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 bg-black/60">
+    <div class="bg-white rounded-xl max-w-md w-full shadow-2xl p-5 space-y-4">
+      <div id="printable-slip" class="space-y-3 text-xs">
+        <div class="text-center border-b pb-3">
+          <div class="text-base font-extrabold text-[#F85606]">MediFilm BD — Order Slip</div>
+          <div class="text-gray-500">X-Ray Film & Medical Pathology Solution</div>
+          <div id="slip-order-id" class="font-mono font-bold text-sm mt-1 bg-gray-100 inline-block px-2 py-0.5 rounded">#ORD-0000</div>
+        </div>
+        <div id="slip-details" class="space-y-1.5 text-gray-700"></div>
+      </div>
+      <div class="flex gap-2 pt-2 border-t">
+        <button type="button" onclick="window.print()" class="flex-1 bg-gray-800 text-white font-bold py-2 rounded text-xs">🖨️ Print</button>
+        <button type="button" onclick="copyOrderSlip()" class="flex-1 bg-orange-100 text-[#F85606] font-bold py-2 rounded text-xs">📋 Copy</button>
+        <button type="button" onclick="closeModal('slip-modal')" class="px-4 bg-gray-200 text-gray-800 font-bold py-2 rounded text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Account Modal -->
+  <div id="customer-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 bg-black/60">
+    <div class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl p-5 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-extrabold text-base text-gray-800">👤 Customer Account & Order History</h3>
+        <button type="button" onclick="closeModal('customer-modal')" class="text-gray-500 hover:text-black text-xl font-bold">✕</button>
+      </div>
+      <div id="customer-auth-view" class="space-y-3">
+        <p class="text-xs text-gray-600">Login with your Phone Number or Email to view your order status & history.</p>
+        <form onsubmit="handleCustomerLogin(event)" class="space-y-2.5">
+          <input id="cust-login-name" type="text" required placeholder="Your Name or Clinic Name" class="w-full border rounded px-3 py-2 text-xs" />
+          <input id="cust-login-contact" type="text" required placeholder="Phone Number (017...) or Email" class="w-full border rounded px-3 py-2 text-xs" />
+          <button type="submit" class="w-full daraz-orange text-white font-bold py-2.5 rounded text-xs">Continue</button>
+        </form>
+      </div>
+      <div id="customer-dashboard-view" class="hidden space-y-3">
+        <div class="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center justify-between">
+          <div>
+            <div id="cust-profile-name" class="font-bold text-sm text-gray-800"></div>
+            <div id="cust-profile-contact" class="text-xs text-gray-600"></div>
+          </div>
+          <button type="button" onclick="logoutCustomer()" class="text-xs bg-white border px-2.5 py-1 rounded font-semibold text-red-600">Logout</button>
+        </div>
+        <h4 class="font-bold text-xs uppercase text-gray-500">Your Orders</h4>
+        <div id="customer-orders-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Management Modal -->
+  <div id="admin-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-2 sm:p-4 bg-black/75">
+    <div class="bg-white rounded-xl max-w-6xl w-full h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="bg-[#F85606] text-white text-xs font-extrabold px-2 py-0.5 rounded">ADMIN</span>
+          <h3 class="font-bold text-sm sm:text-base">Website Management Console</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="lockAdminConsole()" class="text-xs bg-gray-800 hover:bg-gray-700 px-2.5 py-1 rounded">🔒 Lock</button>
+          <button type="button" onclick="closeModal('admin-modal')" class="text-gray-300 hover:text-white text-xl font-bold px-2">✕</button>
+        </div>
+      </div>
+
+      <div id="admin-login-screen" class="flex-1 flex items-center justify-center p-6">
+        <div class="max-w-sm w-full bg-gray-50 border rounded-xl p-5 space-y-4">
+          <div class="text-center space-y-1">
+            <div class="text-3xl">🔐</div>
+            <h4 class="font-extrabold text-base text-gray-800">Admin Password Login</h4>
+            <p class="text-xs text-gray-500">অ্যাডমিন প্যানেলে প্রবেশ করতে পাসওয়ার্ড দিন</p>
+          </div>
+
+          <form onsubmit="verifyAdminPassword(event)" class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Admin Password *</label>
+              <div class="flex gap-1.5">
+                <input
+                  id="admin-password-input"
+                  type="password"
+                  required
+                  autocomplete="current-password"
+                  placeholder="Enter admin password"
+                  class="flex-1 border bg-white rounded px-3 py-2 text-sm font-semibold focus:border-[#F85606] focus:outline-none"
+                />
+                <button type="button" onclick="togglePasswordVisibility('admin-password-input')" class="px-2.5 border bg-white rounded text-xs font-bold text-gray-600">👁</button>
+              </div>
+            </div>
+            <button type="submit" class="w-full daraz-orange daraz-orange-hover text-white font-bold py-2.5 rounded text-xs shadow transition">
+              🔓 Login with Password
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div id="admin-dashboard-screen" class="hidden flex-1 flex flex-col overflow-hidden">
+        <div class="bg-gray-100 border-b px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs font-bold">
+          <button type="button" onclick="switchAdminTab('overview')" class="admin-tab-btn px-3 py-1.5 rounded bg-[#F85606] text-white" data-tab="overview">📊 Overview</button>
+          <button type="button" onclick="switchAdminTab('products')" class="admin-tab-btn px-3 py-1.5 rounded bg-white text-gray-700" data-tab="products">📦 Products & Upload</button>
+          <button type="button" onclick="switchAdminTab('orders')" class="admin-tab-btn px-3 py-1.5 rounded bg-white text-gray-700" data-tab="orders">🧾 Orders</button>
+          <button type="button" onclick="switchAdminTab('reviews')" class="admin-tab-btn px-3 py-1.5 rounded bg-white text-gray-700" data-tab="reviews">⭐ Reviews</button>
+          <button type="button" onclick="switchAdminTab('settings')" class="admin-tab-btn px-3 py-1.5 rounded bg-white text-gray-700" data-tab="settings">⚙️ Settings & Security</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+          <!-- Overview Tab -->
+          <div id="admin-tab-overview" class="admin-tab-panel space-y-4">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Total Products</div>
+                <div id="stat-products" class="text-xl font-extrabold text-[#F85606]">0</div>
+              </div>
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Total Orders</div>
+                <div id="stat-orders" class="text-xl font-extrabold text-blue-700">0</div>
+              </div>
+              <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Advance Collected</div>
+                <div id="stat-advance" class="text-xl font-extrabold text-emerald-700">৳0</div>
+              </div>
+              <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Customer Reviews</div>
+                <div id="stat-reviews" class="text-xl font-extrabold text-amber-700">0</div>
+              </div>
+            </div>
+            <div class="bg-gray-50 border rounded-lg p-3 text-xs text-gray-600">
+              Backend Status: <strong id="sb-status-text" class="text-emerald-700">Checking...</strong>
+            </div>
+          </div>
+
+          <!-- Products Tab -->
+          <div id="admin-tab-products" class="admin-tab-panel hidden space-y-4">
+            <form onsubmit="saveProductFromAdmin(event)" class="bg-gray-50 border rounded-lg p-4 space-y-3">
+              <h4 class="font-bold text-sm text-gray-800">➕ Add / Update Product & Picture</h4>
+              <input id="adm-prod-id" type="hidden" />
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <input id="adm-prod-title" type="text" required placeholder="Product Title (e.g. Fuji DI-HL 14x17)" class="border bg-white rounded px-3 py-2 text-xs" />
+                <input id="adm-prod-cat" type="text" required placeholder="Category (e.g. X-Ray Film)" class="border bg-white rounded px-3 py-2 text-xs" />
+                <input id="adm-prod-price" type="number" required placeholder="Price (BDT)" class="border bg-white rounded px-3 py-2 text-xs" />
+              </div>
+
+              <!-- Product Picture Upload & URL Settings -->
+              <div class="bg-white border border-orange-200 rounded-lg p-3 space-y-2.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <label class="text-xs font-bold text-gray-800">🖼️ Product Picture Settings (Upload or Link)</label>
+                  <span id="img-upload-status" class="text-[11px] font-semibold text-gray-500">Ready</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                  <div class="sm:col-span-3">
+                    <div class="w-full h-24 rounded-lg border bg-gray-100 overflow-hidden flex items-center justify-center">
+                      <img id="adm-prod-preview" src="https://placehold.co/400x300/e2e8f0/334155?text=Preview" alt="Product Preview" class="w-full h-full object-cover" />
+                    </div>
+                  </div>
+                  <div class="sm:col-span-9 space-y-2">
+                    <input
+                      id="adm-prod-file"
+                      type="file"
+                      accept="image/*"
+                      onchange="handleProductImageFile(this)"
+                      class="block w-full text-xs text-gray-700 file:mr-2.5 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-orange-50 file:text-[#F85606] hover:file:bg-orange-100 cursor-pointer"
+                    />
+                    <input
+                      id="adm-prod-img"
+                      type="text"
+                      oninput="updateImagePreviewFromInput()"
+                      placeholder="Or paste Image URL (https://...)"
+                      class="w-full border bg-gray-50 rounded px-3 py-1.5 text-xs focus:border-[#F85606] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <select id="adm-prod-stock" class="border bg-white rounded px-3 py-2 text-xs">
+                  <option value="instock">In Stock</option>
+                  <option value="preorder">Pre-Order</option>
+                </select>
+                <label class="flex items-center gap-2 text-xs font-semibold px-2">
+                  <input id="adm-prod-hot" type="checkbox" class="accent-[#F85606]" />
+                  <span>Mark as Hot Selling</span>
+                </label>
+              </div>
+              <textarea id="adm-prod-desc" rows="2" placeholder="Short description, pack size, specifications..." class="w-full border bg-white rounded px-3 py-2 text-xs"></textarea>
+              <div class="flex gap-2">
+                <button type="submit" class="daraz-orange text-white font-bold px-4 py-2 rounded text-xs">Save Product</button>
+                <button type="button" onclick="resetAdminProductForm()" class="bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded text-xs">Clear</button>
+              </div>
+            </form>
+
+            <div id="admin-products-list" class="space-y-2"></div>
+          </div>
+
+          <!-- Orders Tab -->
+          <div id="admin-tab-orders" class="admin-tab-panel hidden space-y-2">
+            <div id="admin-orders-list" class="space-y-2"></div>
+          </div>
+
+          <!-- Reviews Tab -->
+          <div id="admin-tab-reviews" class="admin-tab-panel hidden space-y-2">
+            <div id="admin-reviews-list" class="space-y-2"></div>
+          </div>
+
+          <!-- Settings Tab -->
+          <div id="admin-tab-settings" class="admin-tab-panel hidden space-y-4">
+            <form onsubmit="saveStoreSettings(event)" class="bg-gray-50 border rounded-lg p-4 space-y-3 max-w-xl">
+              <h4 class="font-bold text-sm text-gray-800">Store Contact & Payment Settings</h4>
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Hotline Number</label>
+                <input id="set-phone" type="text" class="w-full border bg-white rounded px-3 py-2 text-xs" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">bKash / Nagad Number</label>
+                <input id="set-wallet" type="text" class="w-full border bg-white rounded px-3 py-2 text-xs" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">DBBL Agent Number</label>
+                <input id="set-dbbl" type="text" class="w-full border bg-white rounded px-3 py-2 text-xs" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">New Admin Password</label>
+                <input id="set-admin-pass" type="text" placeholder="Leave blank to keep current password" class="w-full border bg-white rounded px-3 py-2 text-xs" />
+              </div>
+              <button type="submit" class="daraz-orange text-white font-bold px-4 py-2 rounded text-xs">Save Settings</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 right-4 z-[60] hidden bg-gray-900 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-xl"></div>
+
+  <script>
+    const DEFAULT_PRODUCTS = [
+      {
+        id: "prod-1",
+        title: "Fujifilm DI-HL Dry Imaging Film (14x17 inch)",
+        category: "X-Ray Film",
+        price: 6800,
+        image: "https://placehold.co/400x300/1e293b/ffffff?text=Fuji+X-Ray+14x17",
+        stock: "instock",
+        hot: true,
+        description: "100 sheets per pack. High-contrast medical dry laser imaging film for radiology & diagnostic centers.",
+        created_at: 1700000001
+      },
+      {
+        id: "prod-2",
+        title: "Fujifilm DI-HL Dry Imaging Film (10x12 inch)",
+        category: "X-Ray Film",
+        price: 4200,
+        image: "https://placehold.co/400x300/1e293b/ffffff?text=Fuji+X-Ray+10x12",
+        stock: "instock",
+        hot: true,
+        description: "100 sheets per pack. Sharp diagnostic clarity for digital and laser printers.",
+        created_at: 1700000002
+      },
+      {
+        id: "prod-3",
+        title: "Fujifilm DI-HL Dry Imaging Film (8x10 inch)",
+        category: "X-Ray Film",
+        price: 2950,
+        image: "https://placehold.co/400x300/1e293b/ffffff?text=Fuji+X-Ray+8x10",
+        stock: "instock",
+        hot: true,
+        description: "100 sheets per pack. Ideal for portable X-ray, dental, and targeted imaging.",
+        created_at: 1700000003
+      },
+      {
+        id: "prod-4",
+        title: "Hematology & Biochemistry Diagnostic Reagents",
+        category: "Diagnostic Reagents",
+        price: 3400,
+        image: "https://placehold.co/400x300/0f766e/ffffff?text=Diagnostic+Reagents",
+        stock: "instock",
+        hot: false,
+        description: "Reliable pathology lab reagents with consistent calibration for routine diagnostic panels.",
+        created_at: 1700000004
+      },
+      {
+        id: "prod-5",
+        title: "12-Channel Digital ECG Machine & Clinic Kit",
+        category: "Clinic Setup",
+        price: 48500,
+        image: "https://placehold.co/400x300/F85606/ffffff?text=ECG+Clinic+Setup",
+        stock: "preorder",
+        hot: true,
+        description: "Complete clinic diagnostic unit with thermal print output, patient leads, and warranty support.",
+        created_at: 1700000005
+      }
+    ];
+
+    const DEFAULT_REVIEWS = [
+      { id: "rev-1", productId: "prod-1", name: "Dr. Mahbub — New City Diagnostic", rating: 5, comment: "Genuine Fuji film quality, delivered on condition in Gaibandha.", created_at: 1700000100 },
+      { id: "rev-2", productId: "prod-2", name: "Gobindaganj Pathology Lab", rating: 5, comment: "Consistent print density and timely courier dispatch.", created_at: 1700000200 },
+      { id: "rev-3", productId: "prod-4", name: "Mahimaganj Clinic", rating: 4, comment: "Good reagent stability and helpful support.", created_at: 1700000300 }
+    ];
+
+    const ZONE_RATES = {
+      local: { advance: 150, delivery: 80 },
+      north: { advance: 180, delivery: 130 },
+      nationwide: { advance: 200, delivery: 150 }
+    };
+
+    const WALLET_NUMBERS = {
+      "bKash": "01750377654",
+      "Nagad": "01750377654",
+      "DBBL Agent": "7017346678915"
+    };
+
+    let state = {
+      products: JSON.parse(localStorage.getItem("mfb_products") || "null") || DEFAULT_PRODUCTS,
+      orders: JSON.parse(localStorage.getItem("mfb_orders") || "[]"),
+      reviews: JSON.parse(localStorage.getItem("mfb_reviews") || "null") || DEFAULT_REVIEWS,
+      cart: JSON.parse(localStorage.getItem("mfb_cart") || "[]"),
+      customer: JSON.parse(localStorage.getItem("mfb_customer") || "null"),
+      adminPassword: localStorage.getItem("mfb_admin_pass") || "admin123",
+      adminUnlocked: false,
+      selectedWallet: "bKash",
+      selectedCategory: "All",
+      selectedFlag: "all",
+      searchQuery: "",
+      activeProductId: null,
+      lang: "en"
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.remove("hidden");
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => el.classList.add("hidden"), 2600);
+    }
+
+    function formatBDT(amount) {
+      return "৳" + Number(amount || 0).toLocaleString("en-IN");
+    }
+
+    function saveLocal() {
+      localStorage.setItem("mfb_products", JSON.stringify(state.products));
+      localStorage.setItem("mfb_orders", JSON.stringify(state.orders));
+      localStorage.setItem("mfb_reviews", JSON.stringify(state.reviews));
+      localStorage.setItem("mfb_cart", JSON.stringify(state.cart));
+      localStorage.setItem("mfb_admin_pass", state.adminPassword);
+    }
+
+    function updateImagePreviewFromInput() {
+      const urlVal = document.getElementById("adm-prod-img").value.trim();
+      const preview = document.getElementById("adm-prod-preview");
+      preview.src = urlVal || "https://placehold.co/400x300/e2e8f0/334155?text=Preview";
+    }
+
+    function readFileAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleProductImageFile(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      const statusEl = document.getElementById("img-upload-status");
+      const urlInput = document.getElementById("adm-prod-img");
+      const preview = document.getElementById("adm-prod-preview");
+
+      const localDataUrl = await readFileAsDataURL(file);
+      preview.src = localDataUrl;
+
+      if (window.SB && window.SB.ready() && window.SB.uploadProductImage) {
+        statusEl.textContent = "Uploading to Supabase Storage...";
+        statusEl.className = "text-[11px] font-semibold text-amber-600";
+        try {
+          const publicUrl = await window.SB.uploadProductImage(file);
+          urlInput.value = publicUrl;
+          preview.src = publicUrl;
+          statusEl.textContent = "Uploaded to Supabase Storage ✓";
+          statusEl.className = "text-[11px] font-semibold text-emerald-700";
+          showToast("Product picture uploaded to Supabase!");
+          return;
+        } catch (err) {
+          console.warn("Supabase storage upload fallback:", err);
+        }
+      }
+
+      urlInput.value = localDataUrl;
+      statusEl.textContent = "Loaded locally ✓";
+      statusEl.className = "text-[11px] font-semibold text-blue-700";
+      showToast("Picture ready");
+    }
+
+    function toggleLanguage() {
+      state.lang = state.lang === "en" ? "bn" : "en";
+      document.getElementById("lang-toggle-label").textContent = state.lang === "en" ? "বাংলা" : "English";
+      document.getElementById("hero-heading").textContent = state.lang === "en"
+        ? "Authentic Fuji X-Ray Films, Diagnostic Reagents & Clinic Setup"
+        : "অরিজিনাল ফুজি এক্স-রে ফিল্ম, ডায়াগনস্টিক রিএজেন্ট ও ক্লিনিক সেটআপ";
+      document.getElementById("hero-desc").textContent = state.lang === "en"
+        ? "Trusted supply for Hospitals, Diagnostic Centers & Clinics. Nationwide Condition Delivery with ৳150–৳200 Advance COD."
+        : "হাসপাতাল, ডায়াগনস্টিক সেন্টার ও ক্লিনিকের নির্ভরযোগ্য সাপ্লাই। ৳১৫০–৳২০০ অ্যাডভান্সে সারাদেশে কন্ডিশন ডেলিভারি।";
+    }
+
+    function renderCategories() {
+      const cats = ["All", ...new Set(state.products.map((p) => p.category).filter(Boolean))];
+      const desktopList = document.getElementById("desktop-category-list");
+      const mobileBar = document.getElementById("mobile-category-bar");
+
+      desktopList.innerHTML = cats.map((c) => {
+        const active = state.selectedCategory === c;
+        return `<li><button type="button" onclick="selectCategory('${c.replace(/'/g, "\\'")}')" class="w-full text-left px-3 py-2 rounded-md transition ${active ? "bg-orange-50 text-[#F85606] font-bold" : "text-gray-700 hover:bg-gray-100"}">${c}</button></li>`;
+      }).join("");
+
+      mobileBar.innerHTML = cats.map((c) => {
+        const active = state.selectedCategory === c;
+        return `<button type="button" onclick="selectCategory('${c.replace(/'/g, "\\'")}')" class="shrink-0 px-2.5 py-1 rounded ${active ? "bg-white text-[#F85606] font-bold" : "bg-white/15 text-white"}">${c}</button>`;
+      }).join("");
+    }
+
+    function selectCategory(cat) {
+      state.selectedCategory = cat;
+      state.selectedFlag = "all";
+      renderCategories();
+      renderProducts();
+    }
+
+    function filterByFlag(flag) {
+      state.selectedFlag = flag;
+      state.selectedCategory = "All";
+      renderCategories();
+      renderProducts();
+      scrollToProducts();
+    }
+
+    function resetFilters() {
+      state.selectedCategory = "All";
+      state.selectedFlag = "all";
+      state.searchQuery = "";
+      document.getElementById("search-input").value = "";
+      document.getElementById("stock-filter").value = "all";
+      document.getElementById("sort-filter").value = "default";
+      renderCategories();
+      renderProducts();
+    }
+
+    function handleSearch(val) {
+      state.searchQuery = (val || "").trim().toLowerCase();
+      renderProducts();
+    }
+
+    function scrollToProducts() {
+      document.getElementById("all-products-section").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function productCardHTML(p) {
+      const badge = p.stock === "preorder"
+        ? `<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded">Pre-Order</span>`
+        : `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded">In Stock</span>`;
+
+      return `
+        <div class="bg-white rounded-lg card-shadow overflow-hidden flex flex-col justify-between border border-gray-100">
+          <div onclick="openProductModal('${p.id}')" class="cursor-pointer">
+            <div class="aspect-[4/3] bg-gray-100 overflow-hidden">
+              <img src="${p.image || "https://placehold.co/400x300/e2e8f0/334155?text=MediFilm+BD"}" alt="${p.title}" class="w-full h-full object-cover" />
+            </div>
+            <div class="p-2.5 space-y-1">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[10px] text-gray-400 font-semibold truncate">${p.category || "Medical"}</span>
+                ${badge}
+              </div>
+              <h3 class="text-xs font-bold text-gray-800 line-clamp-2 min-h-[2rem]">${p.title}</h3>
+              <div class="text-sm font-extrabold text-[#F85606]">${formatBDT(p.price)}</div>
+            </div>
+          </div>
+          <div class="px-2.5 pb-2.5">
+            <button type="button" onclick="addToCart('${p.id}')" class="w-full daraz-orange daraz-orange-hover text-white text-xs font-bold py-1.5 rounded transition">
+              + Add to Cart
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderProducts() {
+      const hotList = state.products.filter((p) => p.hot).slice(0, 5);
+      document.getElementById("hot-selling-grid").innerHTML = hotList.map(productCardHTML).join("") || `<p class="text-xs text-gray-500 col-span-full p-2">No hot selling items.</p>`;
+
+      const stockVal = document.getElementById("stock-filter").value;
+      const sortVal = document.getElementById("sort-filter").value;
+
+      let filtered = state.products.filter((p) => {
+        if (state.selectedCategory !== "All" && p.category !== state.selectedCategory) return false;
+        if (state.selectedFlag === "hot" && !p.hot) return false;
+        if (state.selectedFlag === "preorder" && p.stock !== "preorder") return false;
+        if (stockVal !== "all" && p.stock !== stockVal) return false;
+        if (state.searchQuery) {
+          const hay = `${p.title} ${p.category} ${p.description || ""}`.toLowerCase();
+          if (!hay.includes(state.searchQuery)) return false;
+        }
+        return true;
+      });
+
+      if (sortVal === "price_asc") filtered.sort((a, b) => Number(a.price) - Number(b.price));
+      if (sortVal === "price_desc") filtered.sort((a, b) => Number(b.price) - Number(a.price));
+
+      document.getElementById("product-grid").innerHTML = filtered.map(productCardHTML).join("") || `<p class="text-xs text-gray-500 col-span-full bg-white p-4 rounded-lg">No matching products found.</p>`;
+    }
+
+    function addToCart(prodId) {
+      const prod = state.products.find((p) => p.id === prodId);
+      if (!prod) return;
+      const existing = state.cart.find((item) => item.id === prodId);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        state.cart.push({ id: prod.id, title: prod.title, price: Number(prod.price), qty: 1 });
+      }
+      saveLocal();
+      renderCart();
+      showToast(`${prod.title} added to cart`);
+    }
+
+    function updateCartQty(prodId, delta) {
+      const idx = state.cart.findIndex((item) => item.id === prodId);
+      if (idx === -1) return;
+      state.cart[idx].qty += delta;
+      if (state.cart[idx].qty <= 0) state.cart.splice(idx, 1);
+      saveLocal();
+      renderCart();
+    }
+
+    function renderCart() {
+      const totalQty = state.cart.reduce((sum, item) => sum + item.qty, 0);
+      document.getElementById("cart-badge").textContent = totalQty;
+
+      const listEl = document.getElementById("cart-items-list");
+      const formEl = document.getElementById("checkout-form");
+
+      if (!state.cart.length) {
+        listEl.innerHTML = `<div class="text-center py-10 text-xs text-gray-500">Your cart is empty. Add medical supplies to place an order.</div>`;
+        formEl.classList.add("hidden");
+        return;
+      }
+
+      formEl.classList.remove("hidden");
+      listEl.innerHTML = state.cart.map((item) => `
+        <div class="flex items-center justify-between gap-2 bg-gray-50 border rounded-lg p-2.5 text-xs">
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-gray-800 truncate">${item.title}</div>
+            <div class="text-[#F85606] font-semibold">${formatBDT(item.price)} each</div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" onclick="updateCartQty('${item.id}', -1)" class="w-6 h-6 rounded bg-white border font-bold">-</button>
+            <span class="font-bold w-5 text-center">${item.qty}</span>
+            <button type="button" onclick="updateCartQty('${item.id}', 1)" class="w-6 h-6 rounded bg-white border font-bold">+</button>
+          </div>
+        </div>
+      `).join("");
+
+      recalculateCheckout();
+    }
+
+    function recalculateCheckout() {
+      const subtotal = state.cart.reduce((sum, item) => sum + Number(item.price) * Number(item.qty), 0);
+      const zone = document.getElementById("chk-zone").value || "nationwide";
+      const rate = ZONE_RATES[zone] || ZONE_RATES.nationwide;
+      const grand = subtotal + rate.delivery;
+      const payMode = document.querySelector('input[name="pay_mode"]:checked')?.value || "cod_condition";
+
+      const payNow = payMode === "pay_now" ? grand : Math.min(rate.advance, grand);
+      const due = Math.max(0, grand - payNow);
+
+      document.getElementById("sum-subtotal").textContent = formatBDT(subtotal);
+      document.getElementById("sum-delivery").textContent = formatBDT(rate.delivery);
+      document.getElementById("sum-grand").textContent = formatBDT(grand);
+      document.getElementById("sum-pay-now-label").textContent = payMode === "pay_now" ? "Full Payment Payable Now:" : "Condition Advance Payable Now:";
+      document.getElementById("sum-pay-now").textContent = formatBDT(payNow);
+      document.getElementById("sum-due").textContent = formatBDT(due);
+      document.getElementById("instruction-amount").textContent = formatBDT(payNow);
+    }
+
+    function selectWallet(wallet) {
+      state.selectedWallet = wallet;
+      document.querySelectorAll(".wallet-btn").forEach((b) => b.classList.remove("border-2", "border-[#F85606]"));
+      const activeBtn = document.getElementById("wallet-" + wallet);
+      if (activeBtn) activeBtn.classList.add("border-2", "border-[#F85606]");
+      document.getElementById("selected-wallet-name").textContent = wallet;
+      document.getElementById("selected-wallet-number").textContent = WALLET_NUMBERS[wallet] || "01750377654";
+    }
+
+    function copyWalletNumber() {
+      const num = document.getElementById("selected-wallet-number").textContent;
+      navigator.clipboard?.writeText(num);
+      showToast(`Copied ${num}`);
+    }
+
+    function toggleCartDrawer(open) {
+      const drawer = document.getElementById("cart-drawer");
+      if (open) {
+        drawer.classList.remove("hidden");
+        renderCart();
+      } else {
+        drawer.classList.add("hidden");
+      }
+    }
+
+    async function submitOrder(e) {
+      e.preventDefault();
+      if (!state.cart.length) return;
+
+      const subtotal = state.cart.reduce((sum, item) => sum + Number(item.price) * Number(item.qty), 0);
+      const zone = document.getElementById("chk-zone").value;
+      const rate = ZONE_RATES[zone] || ZONE_RATES.nationwide;
+      const grand = subtotal + rate.delivery;
+      const payMode = document.querySelector('input[name="pay_mode"]:checked')?.value || "cod_condition";
+      const payNow = payMode === "pay_now" ? grand : Math.min(rate.advance, grand);
+      const due = Math.max(0, grand - payNow);
+
+      const order = {
+        id: "ORD-" + Math.floor(100000 + Math.random() * 900000),
+        customer_name: document.getElementById("chk-name").value.trim(),
+        phone: document.getElementById("chk-phone").value.trim(),
+        zone,
+        address: document.getElementById("chk-address").value.trim(),
+        pay_mode: payMode,
+        wallet: state.selectedWallet,
+        sender_number: document.getElementById("chk-sender").value.trim(),
+        trx_id: document.getElementById("chk-trx").value.trim(),
+        items: [...state.cart],
+        subtotal,
+        delivery_charge: rate.delivery,
+        grand_total: grand,
+        paid_now: payNow,
+        due_amount: due,
+        status: "Pending Verification",
+        created_at: Date.now()
+      };
+
+      state.orders.unshift(order);
+      state.cart = [];
+      saveLocal();
+      renderCart();
+      toggleCartDrawer(false);
+
+      if (window.SB && window.SB.ready()) {
+        try {
+          await window.SB.setDocItem("orders", order.id, order);
+        } catch (err) {
+          console.warn("Supabase order sync skipped:", err);
+        }
+      }
+
+      openOrderSlip(order);
+      showToast("Order placed successfully!");
+    }
+
+    function openOrderSlip(order) {
+      document.getElementById("slip-order-id").textContent = "#" + order.id;
+      document.getElementById("slip-details").innerHTML = `
+        <div><strong>Customer:</strong> ${order.customer_name} (${order.phone})</div>
+        <div><strong>Address:</strong> ${order.address}</div>
+        <div><strong>Payment:</strong> ${order.wallet} | Sender: ${order.sender_number} | TrxID: <strong>${order.trx_id}</strong></div>
+        <div class="border-t pt-2 space-y-1">
+          ${(order.items || []).map((i) => `<div class="flex justify-between"><span>${i.title} × ${i.qty}</span><span>${formatBDT(i.price * i.qty)}</span></div>`).join("")}
+        </div>
+        <div class="border-t pt-2 space-y-1 font-bold">
+          <div class="flex justify-between"><span>Delivery:</span><span>${formatBDT(order.delivery_charge)}</span></div>
+          <div class="flex justify-between"><span>Grand Total:</span><span>${formatBDT(order.grand_total)}</span></div>
+          <div class="flex justify-between text-[#F85606]"><span>Paid Now:</span><span>${formatBDT(order.paid_now)}</span></div>
+          <div class="flex justify-between text-emerald-700"><span>Due on Delivery:</span><span>${formatBDT(order.due_amount)}</span></div>
+        </div>
+      `;
+      document.getElementById("slip-modal").classList.remove("hidden");
+      document.getElementById("slip-modal").classList.add("flex");
+    }
+
+    function copyOrderSlip() {
+      const text = document.getElementById("printable-slip").innerText;
+      navigator.clipboard?.writeText(text);
+      showToast("Order slip copied");
+    }
+
+    function openProductModal(prodId) {
+      const p = state.products.find((item) => item.id === prodId);
+      if (!p) return;
+      state.activeProductId = prodId;
+
+      document.getElementById("pm-title").textContent = p.title;
+      document.getElementById("pm-body").innerHTML = `
+        <img src="${p.image || "https://placehold.co/400x300/e2e8f0/334155?text=MediFilm+BD"}" alt="${p.title}" class="w-full h-52 object-cover rounded-lg bg-gray-100" />
+        <div class="space-y-2 text-xs">
+          <div class="text-gray-500 font-semibold">${p.category} • ${p.stock === "preorder" ? "Pre-Order" : "In Stock"}</div>
+          <div class="text-xl font-extrabold text-[#F85606]">${formatBDT(p.price)}</div>
+          <p class="text-gray-700 leading-relaxed">${p.description || "Genuine medical & diagnostic supply."}</p>
+          <button type="button" onclick="addToCart('${p.id}'); closeModal('product-modal');" class="mt-2 w-full daraz-orange text-white font-bold py-2.5 rounded">
+            + Add to Cart
+          </button>
+        </div>
+      `;
+
+      const prodReviews = state.reviews.filter((r) => (r.productId || r.product_id) === prodId);
+      document.getElementById("pm-reviews-list").innerHTML = prodReviews.map((r) => `
+        <div class="bg-gray-50 border rounded p-2 text-xs">
+          <div class="flex justify-between font-bold"><span>${r.name}</span><span class="text-amber-500">${"⭐".repeat(Number(r.rating || 5))}</span></div>
+          <p class="text-gray-600 mt-0.5">${r.comment}</p>
+        </div>
+      `).join("") || `<div class="text-xs text-gray-400">No reviews yet for this product.</div>`;
+
+      document.getElementById("product-modal").classList.remove("hidden");
+      document.getElementById("product-modal").classList.add("flex");
+    }
+
+    async function submitProductReview(e) {
+      e.preventDefault();
+      if (!state.activeProductId) return;
+      const rev = {
+        id: "rev-" + Date.now(),
+        productId: state.activeProductId,
+        name: document.getElementById("rev-name").value.trim(),
+        rating: Number(document.getElementById("rev-rating").value),
+        comment: document.getElementById("rev-comment").value.trim(),
+        created_at: Date.now()
+      };
+      state.reviews.unshift(rev);
+      saveLocal();
+      renderReviews();
+      openProductModal(state.activeProductId);
+      e.target.reset();
+      showToast("Review posted!");
+
+      if (window.SB && window.SB.ready()) {
+        try {
+          await window.SB.setDocItem("reviews", rev.id, rev);
+        } catch (_) {}
+      }
+    }
+
+    function renderReviews() {
+      document.getElementById("review-count-badge").textContent = `${state.reviews.length} Reviews`;
+      document.getElementById("public-reviews-grid").innerHTML = state.reviews.slice(0, 6).map((r) => `
+        <div class="border rounded-lg p-3 bg-gray-50/70 space-y-1 text-xs">
+          <div class="flex items-center justify-between font-bold text-gray-800">
+            <span>${r.name}</span>
+            <span class="text-amber-500">${"⭐".repeat(Number(r.rating || 5))}</span>
+          </div>
+          <p class="text-gray-600">${r.comment}</p>
+        </div>
+      `).join("") || `<div class="text-xs text-gray-500">No reviews available.</div>`;
+    }
+
+    function openCustomerModal() {
+      document.getElementById("customer-modal").classList.remove("hidden");
+      document.getElementById("customer-modal").classList.add("flex");
+      renderCustomerModal();
+    }
+
+    function handleCustomerLogin(e) {
+      e.preventDefault();
+      state.customer = {
+        name: document.getElementById("cust-login-name").value.trim(),
+        contact: document.getElementById("cust-login-contact").value.trim()
+      };
+      localStorage.setItem("mfb_customer", JSON.stringify(state.customer));
+      renderCustomerModal();
+    }
+
+    function logoutCustomer() {
+      state.customer = null;
+      localStorage.removeItem("mfb_customer");
+      renderCustomerModal();
+    }
+
+    function renderCustomerModal() {
+      const authView = document.getElementById("customer-auth-view");
+      const dashView = document.getElementById("customer-dashboard-view");
+      const btn = document.getElementById("customer-header-btn");
+
+      if (!state.customer) {
+        authView.classList.remove("hidden");
+        dashView.classList.add("hidden");
+        btn.textContent = "👤 Login / Account";
+        return;
+      }
+
+      authView.classList.add("hidden");
+      dashView.classList.remove("hidden");
+      btn.textContent = "👤 " + state.customer.name;
+      document.getElementById("cust-profile-name").textContent = state.customer.name;
+      document.getElementById("cust-profile-contact").textContent = state.customer.contact;
+
+      const myOrders = state.orders.filter((o) =>
+        String(o.phone || "").toLowerCase() === state.customer.contact.toLowerCase()
+      );
+      const listOrders = myOrders.length ? myOrders : state.orders;
+
+      document.getElementById("customer-orders-list").innerHTML = listOrders.map((o) => `
+        <div class="border rounded-lg p-2.5 text-xs flex items-center justify-between gap-2">
+          <div>
+            <div class="font-bold">#${o.id} — <span class="text-[#F85606]">${o.status}</span></div>
+            <div class="text-gray-500">Total: ${formatBDT(o.grand_total)} | Paid: ${formatBDT(o.paid_now)}</div>
+          </div>
+          <button type="button" onclick='openOrderSlip(${JSON.stringify(o).replace(/'/g, "&#39;")})' class="bg-gray-100 px-2.5 py-1 rounded font-semibold">Slip</button>
+        </div>
+      `).join("") || `<div class="text-xs text-gray-500">No orders found yet.</div>`;
+    }
+
+    function openAdminGate() {
+      document.getElementById("admin-modal").classList.remove("hidden");
+      document.getElementById("admin-modal").classList.add("flex");
+      syncAdminScreen();
+    }
+
+    function lockAdminConsole() {
+      state.adminUnlocked = false;
+      syncAdminScreen();
+    }
+
+    function syncAdminScreen() {
+      const loginScreen = document.getElementById("admin-login-screen");
+      const dashScreen = document.getElementById("admin-dashboard-screen");
+      if (state.adminUnlocked) {
+        loginScreen.classList.add("hidden");
+        dashScreen.classList.remove("hidden");
+        renderAdminDashboard();
+      } else {
+        loginScreen.classList.remove("hidden");
+        dashScreen.classList.add("hidden");
+      }
+    }
+
+    function verifyAdminPassword(e) {
+      e.preventDefault();
+      const inputPass = document.getElementById("admin-password-input").value;
+      if (inputPass === state.adminPassword) {
+        state.adminUnlocked = true;
+        document.getElementById("admin-password-input").value = "";
+        syncAdminScreen();
+        showToast("Admin unlocked");
+      } else {
+        showToast("Invalid admin password");
+      }
+    }
+
+    function togglePasswordVisibility(id) {
+      const input = document.getElementById(id);
+      input.type = input.type === "password" ? "text" : "password";
+    }
+
+    function switchAdminTab(tabName) {
+      document.querySelectorAll(".admin-tab-btn").forEach((btn) => {
+        const active = btn.dataset.tab === tabName;
+        btn.className = `admin-tab-btn px-3 py-1.5 rounded ${active ? "bg-[#F85606] text-white" : "bg-white text-gray-700"}`;
+      });
+      document.querySelectorAll(".admin-tab-panel").forEach((panel) => {
+        panel.classList.toggle("hidden", panel.id !== "admin-tab-" + tabName);
+      });
+    }
+
+    function renderAdminDashboard() {
+      document.getElementById("sb-status-text").textContent = window.SB && window.SB.ready() ? "Connected (Supabase Postgres & Storage Ready)" : "Local Fallback Mode";
+      document.getElementById("stat-products").textContent = state.products.length;
+      document.getElementById("stat-orders").textContent = state.orders.length;
+      document.getElementById("stat-reviews").textContent = state.reviews.length;
+      const totalAdv = state.orders.reduce((sum, o) => sum + Number(o.paid_now || 0), 0);
+      document.getElementById("stat-advance").textContent = formatBDT(totalAdv);
+
+      document.getElementById("set-phone").value = "+8809658096877";
+      document.getElementById("set-wallet").value = WALLET_NUMBERS["bKash"];
+      document.getElementById("set-dbbl").value = WALLET_NUMBERS["DBBL Agent"];
+
+      document.getElementById("admin-products-list").innerHTML = state.products.map((p) => `
+        <div class="flex items-center justify-between gap-2 border rounded-lg p-2.5 text-xs bg-white">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <img src="${p.image || "https://placehold.co/100x80/e2e8f0/334155?text=Img"}" alt="${p.title}" class="w-12 h-10 rounded object-cover border shrink-0" />
+            <div class="min-w-0">
+              <div class="font-bold truncate">${p.title} <span class="text-gray-400">(${p.category})</span></div>
+              <div class="text-[#F85606] font-bold">${formatBDT(p.price)} • ${p.stock} ${p.hot ? "• HOT" : ""}</div>
+            </div>
+          </div>
+          <div class="flex gap-1.5 shrink-0">
+            <button type="button" onclick="editProductInAdmin('${p.id}')" class="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-semibold">Edit</button>
+            <button type="button" onclick="deleteProductInAdmin('${p.id}')" class="px-2.5 py-1 rounded bg-red-50 text-red-700 font-semibold">Delete</button>
+          </div>
+        </div>
+      `).join("");
+
+      document.getElementById("admin-orders-list").innerHTML = state.orders.map((o, idx) => `
+        <div class="border rounded-lg p-3 text-xs bg-white space-y-1.5">
+          <div class="flex flex-wrap justify-between items-center gap-2">
+            <div class="font-bold">#${o.id} — ${o.customer_name} (${o.phone})</div>
+            <select onchange="updateOrderStatus(${idx}, this.value)" class="border rounded px-2 py-1 text-xs font-semibold">
+              <option ${o.status === "Pending Verification" ? "selected" : ""}>Pending Verification</option>
+              <option ${o.status === "Confirmed" ? "selected" : ""}>Confirmed</option>
+              <option ${o.status === "Dispatched" ? "selected" : ""}>Dispatched</option>
+              <option ${o.status === "Delivered" ? "selected" : ""}>Delivered</option>
+            </select>
+          </div>
+          <div class="text-gray-600">${o.address} | ${o.wallet}: ${o.sender_number} | TrxID: <strong>${o.trx_id}</strong></div>
+          <div class="font-bold text-gray-800">Total: ${formatBDT(o.grand_total)} | Paid Now: ${formatBDT(o.paid_now)} | Due: ${formatBDT(o.due_amount)}</div>
+        </div>
+      `).join("") || `<div class="text-xs text-gray-500">No orders yet.</div>`;
+
+      document.getElementById("admin-reviews-list").innerHTML = state.reviews.map((r) => `
+        <div class="flex items-center justify-between border rounded-lg p-2.5 text-xs bg-white">
+          <div>
+            <div class="font-bold">${r.name} — ${"⭐".repeat(Number(r.rating || 5))}</div>
+            <div class="text-gray-600">${r.comment}</div>
+          </div>
+          <button type="button" onclick="deleteReviewInAdmin('${r.id}')" class="px-2.5 py-1 rounded bg-red-50 text-red-700 font-semibold">Delete</button>
+        </div>
+      `).join("") || `<div class="text-xs text-gray-500">No reviews yet.</div>`;
+    }
+
+    function editProductInAdmin(prodId) {
+      const p = state.products.find((item) => item.id === prodId);
+      if (!p) return;
+      document.getElementById("adm-prod-id").value = p.id;
+      document.getElementById("adm-prod-title").value = p.title;
+      document.getElementById("adm-prod-cat").value = p.category;
+      document.getElementById("adm-prod-price").value = p.price;
+      document.getElementById("adm-prod-img").value = p.image || "";
+      document.getElementById("adm-prod-file").value = "";
+      document.getElementById("adm-prod-stock").value = p.stock || "instock";
+      document.getElementById("adm-prod-hot").checked = Boolean(p.hot);
+      document.getElementById("adm-prod-desc").value = p.description || "";
+      updateImagePreviewFromInput();
+    }
+
+    function resetAdminProductForm() {
+      document.getElementById("adm-prod-id").value = "";
+      document.getElementById("adm-prod-title").value = "";
+      document.getElementById("adm-prod-cat").value = "";
+      document.getElementById("adm-prod-price").value = "";
+      document.getElementById("adm-prod-img").value = "";
+      document.getElementById("adm-prod-file").value = "";
+      document.getElementById("adm-prod-stock").value = "instock";
+      document.getElementById("adm-prod-hot").checked = false;
+      document.getElementById("adm-prod-desc").value = "";
+      document.getElementById("img-upload-status").textContent = "Ready";
+      document.getElementById("img-upload-status").className = "text-[11px] font-semibold text-gray-500";
+      updateImagePreviewFromInput();
+    }
+
+    async function saveProductFromAdmin(e) {
+      e.preventDefault();
+      const existingId = document.getElementById("adm-prod-id").value;
+      const prod = {
+        id: existingId || "prod-" + Date.now(),
+        title: document.getElementById("adm-prod-title").value.trim(),
+        category: document.getElementById("adm-prod-cat").value.trim(),
+        price: Number(document.getElementById("adm-prod-price").value),
+        image: document.getElementById("adm-prod-img").value.trim() || "https://placehold.co/400x300/e2e8f0/334155?text=MediFilm+BD",
+        stock: document.getElementById("adm-prod-stock").value,
+        hot: document.getElementById("adm-prod-hot").checked,
+        description: document.getElementById("adm-prod-desc").value.trim(),
+        created_at: Date.now()
+      };
+
+      if (existingId) {
+        const idx = state.products.findIndex((p) => p.id === existingId);
+        if (idx !== -1) state.products[idx] = prod;
+      } else {
+        state.products.unshift(prod);
+      }
+
+      saveLocal();
+      renderCategories();
+      renderProducts();
+      renderAdminDashboard();
+      resetAdminProductForm();
+      showToast("Product saved");
+
+      if (window.SB && window.SB.ready()) {
+        try {
+          await window.SB.setDocItem("products", prod.id, prod);
+        } catch (err) {
+          console.warn("Supabase product save skipped:", err);
+        }
+      }
+    }
+
+    async function deleteProductInAdmin(prodId) {
+      state.products = state.products.filter((p) => p.id !== prodId);
+      saveLocal();
+      renderCategories();
+      renderProducts();
+      renderAdminDashboard();
+      showToast("Product deleted");
+      if (window.SB && window.SB.ready()) {
+        try {
+          await window.SB.deleteItem("products", prodId);
+        } catch (_) {}
+      }
+    }
+
+    async function updateOrderStatus(idx, status) {
+      if (!state.orders[idx]) return;
+      state.orders[idx].status = status;
+      saveLocal();
+      showToast(`Order status: ${status}`);
+      if (window.SB && window.SB.ready()) {
+        try {
+          await window.SB.updateItem("orders", state.orders[idx].id, { status });
+        } catch (_) {}
+      }
+    }
+
+    async function deleteReviewInAdmin(revId) {
+      state.reviews = state.reviews.filter((r) => r.id !== revId);
+      saveLocal();
+      renderReviews();
+      renderAdminDashboard();
+      if (window.SB && window.SB.ready()) {
+        try {
+          await window.SB.deleteItem("reviews", revId);
+        } catch (_) {}
+      }
+    }
+
+    function saveStoreSettings(e) {
+      e.preventDefault();
+      const phone = document.getElementById("set-phone").value.trim();
+      const wallet = document.getElementById("set-wallet").value.trim();
+      const dbbl = document.getElementById("set-dbbl").value.trim();
+      const newPass = document.getElementById("set-admin-pass").value;
+
+      if (phone) {
+        document.getElementById("footer-phone").textContent = "📞 " + phone;
+        document.getElementById("header-wa-link").href = "tel:" + phone;
+      }
+      if (wallet) {
+        WALLET_NUMBERS["bKash"] = wallet;
+        WALLET_NUMBERS["Nagad"] = wallet;
+        document.getElementById("footer-payment-info").textContent = "bKash / Nagad: " + wallet;
+      }
+      if (dbbl) {
+        WALLET_NUMBERS["DBBL Agent"] = dbbl;
+        document.getElementById("footer-dbbl-info").textContent = "DBBL Agent Banking: " + dbbl;
+      }
+      if (newPass) {
+        state.adminPassword = newPass;
+        document.getElementById("set-admin-pass").value = "";
+      }
+
+      selectWallet(state.selectedWallet);
+      saveLocal();
+      showToast("Settings updated");
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      el.classList.add("hidden");
+      el.classList.remove("flex");
+    }
+
+    function startCountdown() {
+      let totalSeconds = 8 * 3600 + 45 * 60 + 30;
+      setInterval(() => {
+        if (totalSeconds <= 0) totalSeconds = 8 * 3600;
+        totalSeconds--;
+        const h = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+        const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+        const s = String(totalSeconds % 60).padStart(2, "0");
+        document.getElementById("timer-h").textContent = h;
+        document.getElementById("timer-m").textContent = m;
+        document.getElementById("timer-s").textContent = s;
+      }, 1000);
+    }
+
+    async function syncFromSupabaseIfAvailable() {
+      if (!window.SB || !window.SB.ready()) return;
+      try {
+        const sbProds = await window.SB.fetchCollection("products", "created_at", true, 100);
+        if (sbProds && sbProds.length) {
+          state.products = sbProds;
+          saveLocal();
+          renderCategories();
+          renderProducts();
+        }
+        const sbOrders = await window.SB.fetchCollection("orders", "created_at", true, 100);
+        if (sbOrders && sbOrders.length) {
+          state.orders = sbOrders;
+          saveLocal();
+        }
+        const sbReviews = await window.SB.fetchCollection("reviews", "created_at", true, 100);
+        if (sbReviews && sbReviews.length) {
+          state.reviews = sbReviews;
+          saveLocal();
+          renderReviews();
+        }
+      } catch (err) {
+        console.warn("Supabase initial fetch fallback:", err);
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderCategories();
+      renderProducts();
+      renderCart();
+      renderReviews();
+      renderCustomerModal();
+      startCountdown();
+      syncFromSupabaseIfAvailable();
+    });
+
+    window.addEventListener("supabase-sdk-ready", () => {
+      syncFromSupabaseIfAvailable();
+    });
+  </script>
+</body>
+</html>
